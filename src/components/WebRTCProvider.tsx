@@ -11,6 +11,7 @@ import React, {
 import Loading from './Loading'
 import Peer from 'peerjs'
 import { ErrorMessage } from './ErrorMessage'
+import { error as logError, info as logInfo } from '../log'
 
 export type WebRTCPeerValue = {
   peer: Peer
@@ -35,7 +36,7 @@ async function getOrCreateGlobalPeer(): Promise<Peer> {
       method: 'POST',
     })
     const { iceServers } = await response.json()
-    console.log('[WebRTCProvider] ICE servers:', iceServers)
+    logInfo('[WebRTCProvider] ICE servers loaded: %d servers', iceServers.length)
 
     globalPeer = new Peer({
       debug: 3,
@@ -51,7 +52,7 @@ async function getOrCreateGlobalPeer(): Promise<Peer> {
 
   await new Promise<void>((resolve) => {
     const listener = (id: string) => {
-      console.log('[WebRTCProvider] Peer ID:', id)
+      logInfo('[WebRTCProvider] Peer ID: %s', id)
       globalPeer?.off('open', listener)
       resolve()
     }
@@ -71,7 +72,7 @@ export default function WebRTCPeerProvider({
   const [error, setError] = useState<Error | null>(null)
 
   const stop = useCallback(() => {
-    console.log('[WebRTCProvider] Stopping peer')
+    logInfo('[WebRTCProvider] Stopping peer')
     globalPeer?.destroy()
     globalPeer = null
     setPeerValue(null)
@@ -79,7 +80,15 @@ export default function WebRTCPeerProvider({
   }, [])
 
   useEffect(() => {
-    getOrCreateGlobalPeer().then(setPeerValue).catch(setError)
+    getOrCreateGlobalPeer()
+      .then((peer) => {
+        logInfo('[WebRTCProvider] Peer initialized successfully with ID: %s', peer.id)
+        setPeerValue(peer)
+      })
+      .catch((err) => {
+        logError('[WebRTCProvider] Failed to initialize peer: %o', err)
+        setError(err instanceof Error ? err : new Error('Failed to initialize WebRTC peer'))
+      })
   }, [])
 
   const value = useMemo(() => ({ peer: peerValue!, stop }), [peerValue, stop])

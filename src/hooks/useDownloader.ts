@@ -16,6 +16,7 @@ import {
   mobileModel,
 } from 'react-device-detect'
 import { setRotating } from './useRotatingSpinner'
+import { error as logError, info as logInfo } from '../log'
 const cleanErrorMessage = (errorMessage: string): string =>
   errorMessage.startsWith('Could not connect to peer')
     ? 'Could not connect to the uploader. Did they close their browser?'
@@ -57,12 +58,12 @@ export function useDownloader(uploaderPeerID: string): {
 
   useEffect(() => {
     if (!peer) return
-    console.log('[Downloader] connecting to uploader', uploaderPeerID)
+    logInfo('[Downloader] connecting to uploader %s', uploaderPeerID)
     const conn = peer.connect(uploaderPeerID, { reliable: true })
     setDataConnection(conn)
 
     const handleOpen = () => {
-      console.log('[Downloader] connection opened')
+      logInfo('[Downloader] connection opened')
       setIsConnected(true)
       conn.send({
         type: MessageType.RequestInfo,
@@ -78,7 +79,7 @@ export function useDownloader(uploaderPeerID: string): {
     const handleData = (data: unknown) => {
       try {
         const message = decodeMessage(data)
-        console.log('[Downloader] received message', message.type)
+        logInfo('[Downloader] received message %s', message.type)
         switch (message.type) {
           case MessageType.PasswordRequired:
             setIsPasswordRequired(true)
@@ -92,22 +93,26 @@ export function useDownloader(uploaderPeerID: string): {
             setRotating(true)
             break
           case MessageType.Error:
-            console.error('[Downloader] received error message:', message.error)
+            logError('[Downloader] received error message: %s', message.error)
             setErrorMessage(message.error)
             conn.close()
             break
           case MessageType.Report:
-            console.log('[Downloader] received report message, redirecting')
+            logInfo('[Downloader] received report message, redirecting')
             window.location.href = '/reported'
             break
         }
       } catch (err) {
-        console.error('[Downloader] error handling message:', err)
+        logError('[Downloader] error decoding message: %o', err)
+        setErrorMessage('Failed to decode message from uploader')
+        if (conn.open) {
+          conn.close()
+        }
       }
     }
 
     const handleClose = () => {
-      console.log('[Downloader] connection closed')
+      logInfo('[Downloader] connection closed')
       setRotating(false)
       setDataConnection(null)
       setIsConnected(false)
@@ -115,10 +120,11 @@ export function useDownloader(uploaderPeerID: string): {
     }
 
     const handleError = (err: Error) => {
-      console.error('[Downloader] connection error:', err)
+      logError('[Downloader] connection error: %o', err)
       setErrorMessage(cleanErrorMessage(err.message))
-      if (conn.open) conn.close()
-      else handleClose()
+      setRotating(false)
+      // Always call handleClose to clean up state properly
+      handleClose()
     }
 
     conn.on('open', handleOpen)
@@ -128,7 +134,7 @@ export function useDownloader(uploaderPeerID: string): {
     peer.on('error', handleError)
 
     return () => {
-      console.log('[Downloader] cleaning up connection')
+      logInfo('[Downloader] cleaning up connection')
       if (conn.open) {
         conn.close()
       } else {
@@ -148,7 +154,7 @@ export function useDownloader(uploaderPeerID: string): {
   const submitPassword = useCallback(
     (pass: string) => {
       if (!dataConnection) return
-      console.log('[Downloader] submitting password')
+      logInfo('[Downloader] submitting password')
       dataConnection.send({
         type: MessageType.UsePassword,
         password: pass,
@@ -159,7 +165,7 @@ export function useDownloader(uploaderPeerID: string): {
 
   const startDownload = useCallback(() => {
     if (!filesInfo || !dataConnection) return
-    console.log('[Downloader] starting download')
+    logInfo('[Downloader] starting download')
     setIsDownloading(true)
 
     const fileStreamByPath: Record<
@@ -188,8 +194,8 @@ export function useDownloader(uploaderPeerID: string): {
     let nextFileIndex = 0
     const startNextFileOrFinish = () => {
       if (nextFileIndex >= filesInfo.length) return
-      console.log(
-        '[Downloader] starting next file:',
+      logInfo(
+        '[Downloader] starting next file: %s',
         filesInfo[nextFileIndex].fileName,
       )
       dataConnection.send({
@@ -203,13 +209,13 @@ export function useDownloader(uploaderPeerID: string): {
     processChunk.current = (message: z.infer<typeof ChunkMessage>) => {
       const fileStream = fileStreamByPath[message.fileName]
       if (!fileStream) {
-        console.error('[Downloader] no stream found for', message.fileName)
+        logError('[Downloader] no stream found for %s', message.fileName)
         return
       }
       setBytesDownloaded((bd) => bd + (message.bytes as ArrayBuffer).byteLength)
       fileStream.enqueue(new Uint8Array(message.bytes as ArrayBuffer))
       if (message.final) {
-        console.log('[Downloader] finished receiving', message.fileName)
+        logInfo('[Downloader] finished receiving %s', message.fileName)
         fileStream.close()
         startNextFileOrFinish()
       }
@@ -228,21 +234,24 @@ export function useDownloader(uploaderPeerID: string): {
 
     downloadPromise
       .then(() => {
-        console.log('[Downloader] all files downloaded')
+        logInfo('[Downloader] all files downloaded')
         dataConnection.send({ type: MessageType.Done } as z.infer<
           typeof Message
         >)
         setDone(true)
       })
-      .catch((err) => console.error('[Downloader] download error:', err))
+      .catch((err) => {
+        logError('[Downloader] download error: %o', err)
+        setErrorMessage('Download failed: ' + (err instanceof Error ? err.message : 'Unknown error'))
+        setIsDownloading(false)
+      })
 
     startNextFileOrFinish()
   }, [dataConnection, filesInfo])
 
   const stopDownload = useCallback(() => {
-    // TODO(@kern): Continue here with stop / pause logic
     if (dataConnection) {
-      console.log('[Downloader] pausing download')
+      logInfo('[Downloader] stopping download')
       dataConnection.send({ type: MessageType.Pause })
       dataConnection.close()
     }
