@@ -4,6 +4,7 @@ import { Redis, getRedisClient } from './redisClient'
 import { generateShortSlug, generateLongSlug } from './slugs'
 import crypto from 'crypto'
 import { z } from 'zod'
+import { info as logInfo } from './log'
 
 export type Channel = {
   secret?: string
@@ -290,10 +291,10 @@ export function getOrCreateChannelRepo(): ChannelRepo {
   if (!_channelRepo) {
     if (process.env.REDIS_URL) {
       _channelRepo = new RedisChannelRepo()
-      console.log('[ChannelRepo] Using Redis storage')
+      logInfo('[ChannelRepo] Using Redis storage')
     } else {
       _channelRepo = new MemoryChannelRepo()
-      console.log('[ChannelRepo] Using in-memory storage')
+      logInfo('[ChannelRepo] Using in-memory storage')
     }
   }
   return _channelRepo

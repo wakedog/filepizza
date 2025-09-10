@@ -5,6 +5,7 @@ import { useWebRTCPeer } from './WebRTCProvider'
 import { useCallback, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import CancelButton from './CancelButton'
+import { error as logError } from '../log'
 
 export default function ReportTermsViolationButton({
   uploaderPeerID,
@@ -55,7 +56,7 @@ export default function ReportTermsViolationButton({
         window.location.href = '/reported'
       })
     } catch (error) {
-      console.error('Failed to report violation', error)
+      logError('Failed to report violation: %o', error)
       setIsReporting(false)
     }
   }, [peer, uploaderPeerID])

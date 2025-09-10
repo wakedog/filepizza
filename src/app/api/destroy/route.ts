@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getOrCreateChannelRepo } from '../../../channel'
+import { error as logError } from '../../../log'
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const { slug } = await request.json()
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     await getOrCreateChannelRepo().destroyChannel(slug)
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error) {
-    console.error(error)
+    logError('Failed to destroy channel: %o', error)
     return NextResponse.json(
       { error: 'Failed to destroy channel' },
       { status: 500 },

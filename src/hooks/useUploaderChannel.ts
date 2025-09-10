@@ -1,5 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useEffect } from 'react'
+import { error as logError, info as logInfo } from '../log'
 
 function generateURL(slug: string): string {
   const hostPrefix =
@@ -24,8 +25,8 @@ export function useUploaderChannel(
   const { isLoading, error, data } = useQuery({
     queryKey: ['uploaderChannel', uploaderPeerID],
     queryFn: async () => {
-      console.log(
-        '[UploaderChannel] creating new channel for peer',
+      logInfo(
+        '[UploaderChannel] creating new channel for peer %s',
         uploaderPeerID,
       )
       const response = await fetch('/api/create', {
@@ -34,17 +35,17 @@ export function useUploaderChannel(
         body: JSON.stringify({ uploaderPeerID }),
       })
       if (!response.ok) {
-        console.error(
-          '[UploaderChannel] failed to create channel:',
+        logError(
+          '[UploaderChannel] failed to create channel: %d',
           response.status,
         )
         throw new Error('Network response was not ok')
       }
       const data = await response.json()
-      console.log('[UploaderChannel] channel created successfully:', {
-        longSlug: data.longSlug,
-        shortSlug: data.shortSlug,
-      })
+      logInfo('[UploaderChannel] channel created successfully: longSlug=%s, shortSlug=%s', 
+        data.longSlug,
+        data.shortSlug,
+      )
       return data
     },
     refetchOnWindowFocus: false,
@@ -61,21 +62,21 @@ export function useUploaderChannel(
 
   const renewMutation = useMutation({
     mutationFn: async ({ secret: s }: { secret: string }) => {
-      console.log('[UploaderChannel] renewing channel for slug', shortSlug)
+      logInfo('[UploaderChannel] renewing channel for slug %s', shortSlug)
       const response = await fetch('/api/renew', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slug: shortSlug, secret: s }),
       })
       if (!response.ok) {
-        console.error(
-          '[UploaderChannel] failed to renew channel',
+        logError(
+          '[UploaderChannel] failed to renew channel: %d',
           response.status,
         )
         throw new Error('Network response was not ok')
       }
       const data = await response.json()
-      console.log('[UploaderChannel] channel renewed successfully')
+      logInfo('[UploaderChannel] channel renewed successfully')
       return data
     },
   })
@@ -87,10 +88,9 @@ export function useUploaderChannel(
 
     const run = (): void => {
       timeout = setTimeout(() => {
-        console.log(
-          '[UploaderChannel] scheduling channel renewal in',
+        logInfo(
+          '[UploaderChannel] scheduling channel renewal in %d ms',
           renewInterval,
-          'ms',
         )
         renewMutation.mutate({ secret })
         run()
@@ -101,7 +101,7 @@ export function useUploaderChannel(
 
     return () => {
       if (timeout) {
-        console.log('[UploaderChannel] clearing renewal timeout')
+        logInfo('[UploaderChannel] clearing renewal timeout')
         clearTimeout(timeout)
       }
     }
@@ -111,7 +111,7 @@ export function useUploaderChannel(
     if (!shortSlug || !secret) return
 
     const handleUnload = (): void => {
-      console.log('[UploaderChannel] destroying channel on page unload')
+      logInfo('[UploaderChannel] destroying channel on page unload')
       // Using sendBeacon for best-effort delivery during page unload
       navigator.sendBeacon('/api/destroy', JSON.stringify({ slug: shortSlug }))
     }

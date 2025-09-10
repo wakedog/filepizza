@@ -5,12 +5,11 @@ import { ThemeProvider } from '../components/ThemeProvider'
 import { ModeToggle } from '../components/ModeToggle'
 import FilePizzaQueryClientProvider from '../components/QueryClientProvider'
 import { Viewport } from 'next'
-import { ViewTransitions } from 'next-view-transitions'
+// import { ViewTransitions } from 'next-view-transitions' // Temporarily disabled due to React 19 compatibility
 
 export const metadata = {
   title: 'FilePizza • Your files, delivered.',
   description: 'Peer-to-peer file transfers in your web browser.',
-  charSet: 'utf-8',
   openGraph: {
     url: 'https://file.pizza',
     title: 'FilePizza • Your files, delivered.',
@@ -32,18 +31,16 @@ export default function RootLayout({
   children: React.ReactNode
 }): React.ReactElement {
   return (
-    <ViewTransitions>
-      <html lang="en" suppressHydrationWarning>
-        <body>
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-            <FilePizzaQueryClientProvider>
-              <main>{children}</main>
-              <Footer />
-              <ModeToggle />
-            </FilePizzaQueryClientProvider>
-          </ThemeProvider>
-        </body>
-      </html>
-    </ViewTransitions>
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <FilePizzaQueryClientProvider>
+            <main>{children}</main>
+            <Footer />
+            <ModeToggle />
+          </FilePizzaQueryClientProvider>
+        </ThemeProvider>
+      </body>
+    </html>
   )
 }
