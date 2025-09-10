@@ -10,8 +10,8 @@ import { getFileName } from '../fs'
 import { setRotating } from './useRotatingSpinner'
 import { error as logError, info as logInfo } from '../log'
 
-// TODO(@kern): Test for better values
-const MAX_CHUNK_SIZE = 256 * 1024 // 256 KB
+// Optimized chunk size for better performance and reliability
+const MAX_CHUNK_SIZE = 128 * 1024 // 128 KB - reduced for better stability and network compatibility
 
 function validateOffset(
   files: UploadedFile[],

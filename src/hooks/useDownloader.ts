@@ -252,18 +252,29 @@ export function useDownloader(uploaderPeerID: string): {
   const stopDownload = useCallback(() => {
     if (dataConnection) {
       logInfo('[Downloader] stopping download')
-      dataConnection.send({ type: MessageType.Pause })
-      dataConnection.close()
+      // Send pause message to uploader
+      try {
+        dataConnection.send({ type: MessageType.Pause })
+      } catch (err) {
+        logError('[Downloader] error sending pause message: %o', err)
+      }
+      // Close connection
+      try {
+        dataConnection.close()
+      } catch (err) {
+        logError('[Downloader] error closing connection: %o', err)
+      }
     }
+    
+    // Reset download state
     setIsDownloading(false)
     setDone(false)
     setBytesDownloaded(0)
     setErrorMessage(null)
-    // fileStreams.forEach((stream) => stream.cancel())
-    // fileStreams.length = 0
-    // Object.values(fileStreamByPath).forEach((stream) => stream.cancel())
-    // Object.keys(fileStreamByPath).forEach((key) => delete fileStreamByPath[key])
-    //   }, [dataConnection, fileStreams, fileStreamByPath])
+    setRotating(false)
+    
+    // Clear process chunk handler to prevent further processing
+    processChunk.current = null
   }, [dataConnection])
 
   return {
